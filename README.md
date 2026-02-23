@@ -1,73 +1,73 @@
-# React + TypeScript + Vite
+# Flappy Tori
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A Flappy Bird–style browser game built with **React + TypeScript + Vite**, featuring a responsive playable area, difficulty selection, persistent high score, and a local top‑3 leaderboard.
 
-Currently, two official plugins are available:
+Repo: `https://github.com/sghoshm/flappy-tori`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+- **Responsive playable area**: the game canvas automatically fits the available screen size (desktop + mobile).
+- **3 difficulties**: Easy / Medium / Hard adjust pipe speed and gap size.
+- **Controls**: click / tap the canvas or press **Space** to flap.
+- **High score**: saved to `localStorage`.
+- **Local leaderboard (top 3)**: saved to `localStorage` and updated on game over.
+- **Custom bird sprite + favicon**: stored in `public/`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Quick start
 
-## Expanding the ESLint configuration
+### Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js + npm
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Run locally
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open the dev server URL (usually `http://localhost:5173`).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Build & preview production
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
+npm run preview
 ```
+
+## How to play
+
+1. Enter your name.
+2. Choose a difficulty.
+3. Flap with **click/tap** or **Space**.
+4. Pass through pipe gaps to score points.
+
+## Data persistence
+
+- **High score**: `localStorage` key `flappyBirdHighScore`
+- **Leaderboard** (top 3 runs): `localStorage` key `flappyBirdLeaderboard`
+
+## Project structure
+
+```text
+public/
+  bird.png        # Bird sprite
+  favicon.png     # Favicon
+src/
+  App.tsx         # UI + game loop + leaderboard persistence
+  gameLogic.ts    # Physics, pipes, collision, scoring, difficulty config
+  App.css         # Layout + styling (3-column desktop grid)
+  main.tsx        # React entrypoint
+index.html        # Page title + favicon
+```
+
+## Scripts
+
+- `npm run dev`: start dev server
+- `npm run build`: typecheck + production build
+- `npm run preview`: preview production build
+- `npm run lint`: lint
+
+## License
+
+Apache-2.0 (see `LICENSE`).
