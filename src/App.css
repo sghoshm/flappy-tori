@@ -134,71 +134,25 @@
   background: #45a049;
 }
 
-/* Difficulty Selection Panel */
-.difficulty-panel {
-  background: white;
-  padding: 30px 40px;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  text-align: center;
-  max-width: 500px;
-  width: 90%;
-}
-
-.difficulty-panel h3 {
-  margin: 0 0 20px 0;
-  font-size: 24px;
-  color: #1e90ff;
-  font-weight: 700;
-}
-
-.difficulty-buttons {
-  display: flex;
-  gap: 15px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.difficulty-btn {
-  padding: 12px 30px;
-  border: none;
+.difficulty-select {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #ddd;
   border-radius: 6px;
-  font-size: 18px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
+  font-size: 16px;
+  box-sizing: border-box;
+  margin-bottom: 24px;
+  font-weight: 600;
   font-family: 'Fredoka', sans-serif;
-  min-width: 100px;
+  appearance: auto;
+  background-color: white;
+  cursor: pointer;
 }
 
-.difficulty-btn.easy {
-  background: #4CAF50;
-  color: white;
-}
-
-.difficulty-btn.easy:hover {
-  background: #45a049;
-  transform: scale(1.05);
-}
-
-.difficulty-btn.medium {
-  background: #FF9800;
-  color: white;
-}
-
-.difficulty-btn.medium:hover {
-  background: #e68900;
-  transform: scale(1.05);
-}
-
-.difficulty-btn.hard {
-  background: #f44336;
-  color: white;
-}
-
-.difficulty-btn.hard:hover {
-  background: #da190b;
-  transform: scale(1.05);
+.difficulty-select:focus {
+  outline: none;
+  border-color: #1e90ff;
+  box-shadow: 0 0 0 3px rgba(30, 144, 255, 0.1);
 }
 
 /* Game Container */

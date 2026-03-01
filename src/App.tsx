@@ -8,6 +8,8 @@ import {
   FPS,
   createGameConfig
 } from './gameLogic'
+import * as Y from 'yjs'
+import { WebrtcProvider } from 'y-webrtc'
 
 function App() {
   const containerRef = useRef<HTMLElement | null>(null)
@@ -24,12 +26,12 @@ function App() {
   const [showNameModal, setShowNameModal] = useState(true)
   const [highScore, setHighScore] = useState(0)
   type LeaderboardEntry = { name: string; score: number }
-  const defaultLeaderboard: LeaderboardEntry[] = [
-    { name: 'Player2', score: 30 },
-    { name: 'Player3', score: 25 },
-    { name: 'Player4', score: 18 }
-  ]
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(defaultLeaderboard)
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+
+  // WebRTC
+  const ydocRef = useRef<Y.Doc | null>(null)
+  const providerRef = useRef<WebrtcProvider | null>(null)
+  const globalScoresMapRef = useRef<Y.Map<number> | null>(null)
   const [canvasWidth, setCanvasWidth] = useState(600)
   const [canvasHeight, setCanvasHeight] = useState(600)
   const gameLoopRef = useRef<number | null>(null)
@@ -52,29 +54,45 @@ function App() {
     }
   }
 
+  // WebRTC initialization
+  useEffect(() => {
+    const ydoc = new Y.Doc()
+    ydocRef.current = ydoc
+
+    // We use a custom room name for this game
+    const provider = new WebrtcProvider('flappy-bird-global-leaderboard-room-v1', ydoc, {
+      signaling: ['wss://signaling.yjs.dev', 'wss://y-webrtc-signaling-eu.herokuapp.com']
+    })
+    providerRef.current = provider
+
+    const map = ydoc.getMap<number>('scores')
+    globalScoresMapRef.current = map
+
+    const updateLeaderboard = () => {
+      const entries: LeaderboardEntry[] = []
+      map.forEach((score, name) => {
+        entries.push({ name, score })
+      })
+      // Sort in descending order, limit to top 10
+      entries.sort((a, b) => b.score - a.score)
+      setLeaderboard(entries.slice(0, 10))
+    }
+
+    map.observe(() => {
+      updateLeaderboard()
+    })
+    updateLeaderboard()
+
+    return () => {
+      provider.destroy()
+      ydoc.destroy()
+    }
+  }, [])
+
   // Load high score and calculate responsive canvas size
   useEffect(() => {
     const saved = localStorage.getItem('flappyBirdHighScore')
     if (saved) setHighScore(parseInt(saved, 10))
-
-    const lbSaved = localStorage.getItem('flappyBirdLeaderboard')
-    if (lbSaved) {
-      try {
-        const parsed = JSON.parse(lbSaved) as LeaderboardEntry[]
-        if (Array.isArray(parsed) && parsed.every((e) => typeof e?.name === 'string' && typeof e?.score === 'number')) {
-          setLeaderboard(parsed)
-        } else {
-          localStorage.setItem('flappyBirdLeaderboard', JSON.stringify(defaultLeaderboard))
-          setLeaderboard(defaultLeaderboard)
-        }
-      } catch {
-        localStorage.setItem('flappyBirdLeaderboard', JSON.stringify(defaultLeaderboard))
-        setLeaderboard(defaultLeaderboard)
-      }
-    } else {
-      localStorage.setItem('flappyBirdLeaderboard', JSON.stringify(defaultLeaderboard))
-      setLeaderboard(defaultLeaderboard)
-    }
 
     // Observe the actual canvas element size so the game area matches
     // the center (red rectangle) exactly and stays responsive.
@@ -157,17 +175,15 @@ function App() {
         localStorage.setItem('flappyBirdHighScore', gameState.score.toString())
       }
 
-      // Update local "global" leaderboard (no backend): insert this run and keep top scores.
-      const current: LeaderboardEntry = { name: playerName.trim() || 'Player', score: gameState.score }
-      setLeaderboard((prev) => {
-        const next = [...prev, current]
-          .filter((e) => e.score > 0 && e.name.length > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 3)
-
-        localStorage.setItem('flappyBirdLeaderboard', JSON.stringify(next))
-        return next
-      })
+      // Update WebRTC global leaderboard
+      if (globalScoresMapRef.current) {
+        const pName = playerName.trim() || 'Player'
+        const map = globalScoresMapRef.current
+        const existingScore = map.get(pName) ?? -1
+        if (gameState.score > existingScore) {
+          map.set(pName, gameState.score)
+        }
+      }
     }
   }, [gameState.gameOver, gameState.score, highScore, started, playerName])
 
@@ -234,143 +250,157 @@ function App() {
               touchAction: 'manipulation'
             }}
           >
-          {/* Bird */}
-          <div
-            className="bird"
-            style={{
-              position: 'absolute',
-              left: gameState.playerX,
-              top: gameState.playerY,
-              width: gameConfig.playerWidth,
-              height: gameConfig.playerHeight,
-              zIndex: 10
-            }}
-          >
-            <img
-              src="/bird.png"
-              alt="Bird"
+            {/* Bird */}
+            <div
+              className="bird"
               style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain',
-                display: 'block',
-                pointerEvents: 'none',
-                userSelect: 'none'
+                position: 'absolute',
+                left: gameState.playerX,
+                top: gameState.playerY,
+                width: gameConfig.playerWidth,
+                height: gameConfig.playerHeight,
+                zIndex: 10
               }}
-            />
+            >
+              <img
+                src="/bird.png"
+                alt="Bird"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  display: 'block',
+                  pointerEvents: 'none',
+                  userSelect: 'none'
+                }}
+              />
+            </div>
+
+            {/* Upper pipes */}
+            {gameState.upperPipes.map((pipe, idx) => (
+              <div
+                key={`upper-${idx}`}
+                style={{
+                  position: 'absolute',
+                  left: pipe.x,
+                  top: pipe.y,
+                  width: gameConfig.pipeWidth,
+                  height: gameConfig.pipeHeight,
+                  background: 'linear-gradient(to right, #228B22 0%, #32CD32 50%, #228B22 100%)',
+                  border: '2px solid #000',
+                  boxSizing: 'border-box'
+                }}
+              />
+            ))}
+
+            {/* Lower pipes */}
+            {gameState.lowerPipes.map((pipe, idx) => (
+              <div
+                key={`lower-${idx}`}
+                style={{
+                  position: 'absolute',
+                  left: pipe.x,
+                  top: pipe.y,
+                  width: gameConfig.pipeWidth,
+                  height: Math.max(0, canvasHeight - pipe.y),
+                  background: 'linear-gradient(to right, #228B22 0%, #32CD32 50%, #228B22 100%)',
+                  border: '2px solid #000',
+                  boxSizing: 'border-box'
+                }}
+              />
+            ))}
+
+            {/* Game instructions */}
+            {!started && !gameState.gameOver && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  padding: '20px 40px',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  zIndex: 100
+                }}
+              >
+                <p style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>Click or Press Space to Jump</p>
+              </div>
+            )}
+
+            {/* Game Over */}
+            {gameState.gameOver && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  padding: '30px 40px',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  zIndex: 100
+                }}
+              >
+                <h2 style={{ margin: '0 0 10px 0' }}>Game Over!</h2>
+                <p style={{ margin: '0 0 5px 0', fontSize: '18px' }}>Score: {gameState.score}</p>
+                <p style={{ margin: '0 0 20px 0', fontSize: '16px' }}>Best: {highScore}</p>
+                <button
+                  onClick={handleRestart}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginRight: '10px'
+                  }}
+                >
+                  Play Again
+                </button>
+                <button
+                  onClick={handleNameAgain}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#2196F3',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginRight: '10px'
+                  }}
+                >
+                  Change Name
+                </button>
+                <button
+                  onClick={handleNameAgain}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#FF9800',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Change Mode
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Upper pipes */}
-          {gameState.upperPipes.map((pipe, idx) => (
-            <div
-              key={`upper-${idx}`}
-              style={{
-                position: 'absolute',
-                left: pipe.x,
-                top: pipe.y,
-                width: gameConfig.pipeWidth,
-                height: gameConfig.pipeHeight,
-                background: 'linear-gradient(to right, #228B22 0%, #32CD32 50%, #228B22 100%)',
-                border: '2px solid #000',
-                boxSizing: 'border-box'
-              }}
-            />
-          ))}
-
-          {/* Lower pipes */}
-          {gameState.lowerPipes.map((pipe, idx) => (
-            <div
-              key={`lower-${idx}`}
-              style={{
-                position: 'absolute',
-                left: pipe.x,
-                top: pipe.y,
-                width: gameConfig.pipeWidth,
-                height: Math.max(0, canvasHeight - pipe.y),
-                background: 'linear-gradient(to right, #228B22 0%, #32CD32 50%, #228B22 100%)',
-                border: '2px solid #000',
-                boxSizing: 'border-box'
-              }}
-            />
-          ))}
-
-          {/* Game instructions */}
-          {!started && !gameState.gameOver && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                background: 'rgba(255, 255, 255, 0.9)',
-                padding: '20px 40px',
-                borderRadius: '8px',
-                textAlign: 'center',
-                zIndex: 100
-              }}
-            >
-              <p style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>Click or Press Space to Jump</p>
-            </div>
-          )}
-
-          {/* Game Over */}
-          {gameState.gameOver && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                background: 'rgba(255, 255, 255, 0.95)',
-                padding: '30px 40px',
-                borderRadius: '8px',
-                textAlign: 'center',
-                zIndex: 100
-              }}
-            >
-              <h2 style={{ margin: '0 0 10px 0' }}>Game Over!</h2>
-              <p style={{ margin: '0 0 5px 0', fontSize: '18px' }}>Score: {gameState.score}</p>
-              <p style={{ margin: '0 0 20px 0', fontSize: '16px' }}>Best: {highScore}</p>
-              <button
-                onClick={handleRestart}
-                style={{
-                  padding: '10px 20px',
-                  background: '#4CAF50',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  marginRight: '10px'
-                }}
-              >
-                Play Again
-              </button>
-              <button
-                onClick={handleNameAgain}
-                style={{
-                  padding: '10px 20px',
-                  background: '#2196F3',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                Change Name
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Leaderboard */}
-        <div className="leaderboard">
-          <div className="leaderboard-header">Global Leaderboard</div>
-          <ol className="leaderboard-list">
-            {leaderboard.map((e) => (
-              <li key={`${e.name}-${e.score}`}>{e.name} - {e.score}</li>
-            ))}
-          </ol>
-        </div>
+          {/* Leaderboard */}
+          <div className="leaderboard">
+            <div className="leaderboard-header">Global Leaderboard</div>
+            <ol className="leaderboard-list">
+              {leaderboard.map((e) => (
+                <li key={`${e.name}-${e.score}`}>{e.name} - {e.score}</li>
+              ))}
+            </ol>
+          </div>
         </div>
       </main>
 
@@ -379,6 +409,7 @@ function App() {
         <div className="modal-overlay">
           <div className="modal">
             <h2>Enter Your Name to Play!</h2>
+
             <label>Your Name:</label>
             <input
               type="text"
@@ -387,16 +418,22 @@ function App() {
               autoFocus
               maxLength={20}
             />
-            <button onClick={() => handleNameSubmit(playerName)}>Start</button>
-          </div>
 
-          <div className="difficulty-panel">
-            <h3>Choose Difficulty:</h3>
-            <div className="difficulty-buttons">
-              <button className="difficulty-btn easy" onClick={() => handleDifficultySelect('easy')}>Easy</button>
-              <button className="difficulty-btn medium" onClick={() => handleDifficultySelect('medium')}>Medium</button>
-              <button className="difficulty-btn hard" onClick={() => handleDifficultySelect('hard')}>Hard</button>
-            </div>
+            <label>Choose Difficulty:</label>
+            <select
+              value={difficulty}
+              onChange={(e) => setDifficulty(e.target.value as Difficulty)}
+              className="difficulty-select"
+            >
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+
+            <button onClick={() => {
+              handleNameSubmit(playerName)
+              handleDifficultySelect(difficulty)
+            }}>Start Game</button>
           </div>
         </div>
       )}
