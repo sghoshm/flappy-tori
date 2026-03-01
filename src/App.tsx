@@ -10,6 +10,7 @@ import {
 } from './gameLogic'
 import * as Y from 'yjs'
 import { WebrtcProvider } from 'y-webrtc'
+import { WebsocketProvider } from 'y-websocket'
 
 function App() {
   const containerRef = useRef<HTMLElement | null>(null)
@@ -54,16 +55,26 @@ function App() {
     }
   }
 
-  // WebRTC initialization
+  // WebRTC & WebSocket initialization
   useEffect(() => {
     const ydoc = new Y.Doc()
     ydocRef.current = ydoc
 
     // We use a custom room name for this game
-    const provider = new WebrtcProvider('flappy-bird-global-leaderboard-room-v1', ydoc, {
+    const roomName = 'flappy-bird-global-leaderboard-room-v1'
+
+    // WebRTC for fast local P2P sync
+    const webrtcProvider = new WebrtcProvider(roomName, ydoc, {
       signaling: ['wss://signaling.yjs.dev', 'wss://y-webrtc-signaling-eu.herokuapp.com']
     })
-    providerRef.current = provider
+    providerRef.current = webrtcProvider
+
+    // WebSocket fallback for reliable global sync across different networks/NATs
+    const wsProvider = new WebsocketProvider(
+      'wss://demos.yjs.dev/ws',
+      roomName,
+      ydoc
+    )
 
     const map = ydoc.getMap<number>('scores')
     globalScoresMapRef.current = map
@@ -84,7 +95,8 @@ function App() {
     updateLeaderboard()
 
     return () => {
-      provider.destroy()
+      webrtcProvider.destroy()
+      wsProvider.destroy()
       ydoc.destroy()
     }
   }, [])
