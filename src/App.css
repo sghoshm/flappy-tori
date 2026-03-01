@@ -321,23 +321,38 @@
     padding: 12px 15px;
   }
 
-  .scoreboard,
-  .leaderboard {
-    display: none;
-  }
-
   .game-container {
     padding: 12px 12px 16px;
+    overflow-y: auto;
   }
 
   .game-grid {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto auto auto;
     gap: 12px;
   }
 
-  .game-header,
+  .game-header {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
   .game-canvas {
     grid-column: 1;
+    grid-row: 2;
+    min-height: 400px;
+    /* Ensures canvas doesn't collapse */
+  }
+
+  .scoreboard {
+    grid-column: 1;
+    grid-row: 3;
+    justify-self: stretch;
+  }
+
+  .leaderboard {
+    grid-column: 1;
+    grid-row: 4;
+    justify-self: stretch;
   }
 }
