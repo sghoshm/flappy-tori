@@ -94,7 +94,18 @@ function App() {
     })
     updateLeaderboard()
 
+    // Listen for tab visibility changes to reconnect on mobile
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        if (!wsProvider.shouldConnect) {
+          wsProvider.connect()
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       webrtcProvider.destroy()
       wsProvider.destroy()
       ydoc.destroy()
@@ -359,47 +370,26 @@ function App() {
                 <h2 style={{ margin: '0 0 10px 0' }}>Game Over!</h2>
                 <p style={{ margin: '0 0 5px 0', fontSize: '18px' }}>Score: {gameState.score}</p>
                 <p style={{ margin: '0 0 20px 0', fontSize: '16px' }}>Best: {highScore}</p>
-                <button
-                  onClick={handleRestart}
-                  style={{
-                    padding: '10px 20px',
-                    background: '#4CAF50',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    marginRight: '10px'
-                  }}
-                >
-                  Play Again
-                </button>
-                <button
-                  onClick={handleNameAgain}
-                  style={{
-                    padding: '10px 20px',
-                    background: '#2196F3',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    marginRight: '10px'
-                  }}
-                >
-                  Change Name
-                </button>
-                <button
-                  onClick={handleNameAgain}
-                  style={{
-                    padding: '10px 20px',
-                    background: '#FF9800',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Change Mode
-                </button>
+                <div className="game-over-buttons">
+                  <button
+                    onClick={handleRestart}
+                    className="game-over-btn play-again-btn"
+                  >
+                    Play Again
+                  </button>
+                  <button
+                    onClick={handleNameAgain}
+                    className="game-over-btn change-name-btn"
+                  >
+                    Change Name
+                  </button>
+                  <button
+                    onClick={handleNameAgain}
+                    className="game-over-btn change-mode-btn"
+                  >
+                    Change Mode
+                  </button>
+                </div>
               </div>
             )}
           </div>
